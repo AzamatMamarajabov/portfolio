@@ -2,6 +2,10 @@
 .home-st1 {
   position: relative; }
 
+  html, body {
+    overflow: auto !important;
+}
+
 @media screen and (max-width: 991px) {
   .home-st1 .fsz-70 {
     font-size: 40px !important; }
