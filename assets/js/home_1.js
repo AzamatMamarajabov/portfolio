@@ -336,3 +336,170 @@ const fragment = `
     renderer.render({ scene: mesh });
   }
 }
+
+// Swiper.js initialization
+document.addEventListener("DOMContentLoaded", function () {
+  var swiper = new Swiper(".swiper", {
+      speed: 1000,
+      parallax: true,
+      mousewheel: {
+          invert: false,
+      },
+      allowTouchMove: true,
+  });
+});
+
+// GSAP animations
+document.addEventListener("DOMContentLoaded", function () {
+  gsap.to(".text-wrap", {
+      scrollTrigger: {
+          trigger: ".text-wrap",
+          start: "top bottom",
+          end: "bottom center",
+          scrub: 0.5,
+      },
+      y: 50,
+      ease: "power2.out",
+  });
+});
+
+// Canvas Animation (ogl.js replacement)
+(function () {
+  if (!document.body.classList.contains("canvas-body")) return;
+  const canvas = document.createElement("canvas");
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  let lastTime = 0;
+  let velocity = { x: 0, y: 0 };
+
+  function update(time) {
+      let deltaTime = Math.max(10.4, time - lastTime);
+      velocity.x *= 0.9;
+      velocity.y *= 0.9;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2 + velocity.x, canvas.height / 2 + velocity.y, 30, 0, Math.PI * 2);
+      ctx.fillStyle = "red";
+      ctx.fill();
+
+      lastTime = time;
+      requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+
+  window.addEventListener("mousemove", (event) => {
+      velocity.x += (event.clientX - canvas.width / 2) * 0.005;
+      velocity.y += (event.clientY - canvas.height / 2) * 0.005;
+  });
+})();
+
+// Fix CSS scrolling issue
+document.documentElement.style.overflowY = "scroll";
+document.body.style.overflowY = "scroll";
+$(document).ready(function () {
+  // About section marq slider
+  var aboutSwiper = new Swiper(".ui-about-st1 .marq-slider", {
+    slidesPerView: "auto",
+    spaceBetween: 50,
+    centeredSlides: true,
+    speed: 30000,
+    allowTouchMove: false,
+    autoplay: {
+      delay: 1,
+    },
+    loop: true,
+  });
+
+  // Testimonials slider
+  var galleryThumbs = new Swiper(".ui-testimonials-st1 .gallery-thumbs", {
+    spaceBetween: 10,
+    slidesPerView: 3,
+    direction: "vertical",
+    speed: 1500,
+    autoplay: {
+      delay: 2000,
+    },
+    breakpoints: {
+      0: { slidesPerView: 3, direction: "horizontal" },
+      991: { slidesPerView: 3, direction: "vertical" },
+    },
+  });
+
+  var galleryTop = new Swiper(".ui-testimonials-st1 .testimonials-slider", {
+    spaceBetween: 30,
+    navigation: {
+      nextEl: ".ui-testimonials-st1 .swiper-button-next",
+      prevEl: ".ui-testimonials-st1 .swiper-button-prev",
+    },
+    thumbs: { swiper: galleryThumbs },
+    speed: 1500,
+    autoplay: { delay: 2000 },
+  });
+
+  // GSAP animations
+  gsap.utils.toArray(".ui-portfolio-st1 .portfolio-slider .item").forEach((item) => {
+    gsap.timeline({
+      scrollTrigger: {
+        trigger: item,
+        start: "top bottom",
+        end: "bottom+=150% center",
+        scrub: true,
+      },
+    }).fromTo(item, { y: 50, opacity: 0 }, { y: 0, opacity: 1, ease: "power1.out" });
+  });
+
+  // Canvas Animation
+  const renderer = new ogl.Renderer({ dpr: 2 });
+  const gl = renderer.gl;
+  document.body.classList.contains("canvas-body") && document.body.appendChild(gl.canvas);
+
+  const imgSize = [1250, 833];
+  let aspect = 1, mouse = new ogl.Vec2(-1), velocity = new ogl.Vec2();
+  function resize() {
+    let imageAspect = imgSize[1] / imgSize[0];
+    let a1 = window.innerWidth / window.innerHeight < imageAspect ? 1 : (window.innerWidth / window.innerHeight) * imageAspect;
+    let a2 = window.innerWidth / window.innerHeight < imageAspect ? window.innerHeight / window.innerWidth / imageAspect : 1;
+    mesh.program.uniforms.res.value = new ogl.Vec4(window.innerWidth, window.innerHeight, a1, a2);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  const flowmap = new ogl.Flowmap(gl);
+  const geometry = new ogl.Geometry(gl, {
+    position: { size: 2, data: new Float32Array([-1, -1, 3, -1, -1, 3]) },
+    uv: { size: 2, data: new Float32Array([0, 0, 2, 0, 0, 2]) },
+  });
+
+  const texture = new ogl.Texture(gl, { minFilter: gl.LINEAR, magFilter: gl.LINEAR });
+  const img = new Image();
+  img.onload = () => (texture.image = img);
+  img.src = "assets/img/body-shap.png";
+
+  const program = new ogl.Program(gl, {
+    vertex: attribute vec2 position; varying vec2 vUv; void main() { vUv = position; gl_Position = vec4(position, 0, 1); },
+    fragment: precision highp float; uniform sampler2D tWater; uniform sampler2D tFlow; varying vec2 vUv; void main() { vec3 flow = texture2D(tFlow, vUv).rgb; vec2 myUV = vUv - flow.xy * 0.1; vec3 tex = texture2D(tWater, myUV).rgb; gl_FragColor = vec4(tex, 1.0); },
+    uniforms: {
+      tWater: { value: texture },
+      tFlow: flowmap.uniform,
+      res: { value: new ogl.Vec4(window.innerWidth, window.innerHeight, 1, 1) },
+    },
+  });
+
+  const mesh = new ogl.Mesh(gl, { geometry, program });
+  window.addEventListener("resize", resize, false);
+  resize();
+
+  function update(t) {
+    requestAnimationFrame(update);
+    flowmap.mouse.copy(mouse);
+    flowmap.velocity.lerp(velocity, 0.15);
+    flowmap.update();
+    program.uniforms.res.value = new ogl.Vec4(window.innerWidth, window.innerHeight, 1, 1);
+    renderer.render({ scene: mesh });
+  }
+  requestAnimationFrame(update);
+});
